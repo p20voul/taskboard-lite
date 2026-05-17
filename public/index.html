@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaskBoard Lite</title>
+<style>
+  :root {
+    --bg: #0f0f11; --bg2: #1a1a1f; --bg3: #222228;
+    --border: #2e2e38; --text: #e8e8f0; --text2: #8888a0;
+    --accent: #6c63ff; --todo: #ff6584; --prog: #ffc857; --done: #4ecca3;
+    --radius: 10px; --font: 'Segoe UI', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+
+  /* AUTH */
+  #authScreen {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  }
+  .auth-box {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 16px;
+    padding: 2.5rem; width: 360px;
+  }
+  .auth-box h1 { font-size: 1.5rem; margin-bottom: 0.3rem; }
+  .auth-box h1 span { color: var(--accent); }
+  .auth-box p { color: var(--text2); font-size: 0.85rem; margin-bottom: 1.8rem; }
+  .auth-tabs { display: flex; gap: 0; margin-bottom: 1.5rem; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .auth-tab {
+    flex: 1; padding: 0.6rem; text-align: center; cursor: pointer;
+    background: transparent; border: none; color: var(--text2); font-size: 0.88rem; font-family: var(--font);
+    transition: background 0.15s, color 0.15s;
+  }
+  .auth-tab.active { background: var(--accent); color: #fff; font-weight: 600; }
+  .field { margin-bottom: 1rem; }
+  .field label { display: block; font-size: 0.78rem; color: var(--text2); margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.4px; }
+  .field input {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text); padding: 0.65rem 0.9rem; border-radius: 8px;
+    font-family: var(--font); font-size: 0.9rem; outline: none; transition: border-color 0.15s;
+  }
+  .field input:focus { border-color: var(--accent); }
+  .btn {
+    width: 100%; background: var(--accent); color: #fff; border: none;
+    padding: 0.7rem; border-radius: var(--radius); font-size: 0.9rem;
+    font-weight: 600; cursor: pointer; font-family: var(--font); transition: opacity 0.15s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn-sm {
+    background: var(--accent); color: #fff; border: none; padding: 0.4rem 0.9rem;
+    border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+    font-family: var(--font); transition: opacity 0.15s;
+  }
+  .btn-sm:hover { opacity: 0.85; }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border); color: var(--text2);
+    padding: 0.4rem 0.9rem; border-radius: 8px; font-size: 0.82rem;
+    cursor: pointer; font-family: var(--font); transition: border-color 0.15s, color 0.15s;
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--text); }
+  .error-msg { color: var(--todo); font-size: 0.82rem; margin-top: 0.8rem; text-align: center; }
+
+  /* APP */
+  #appScreen { display: none; }
+  header {
+    background: var(--bg2); border-bottom: 1px solid var(--border);
+    padding: 0 2rem; height: 60px; display: flex; align-items: center;
+    justify-content: space-between; position: sticky; top: 0; z-index: 100;
+  }
+  .logo { font-size: 1.2rem; font-weight: 700; }
+  .logo span { color: var(--accent); }
+  .header-right { display: flex; align-items: center; gap: 1rem; }
+  .user-badge {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 20px;
+    padding: 0.3rem 0.8rem; font-size: 0.8rem; color: var(--text2);
+  }
+  .stats-bar {
+    display: flex; gap: 1rem; padding: 1rem 2rem;
+    background: var(--bg2); border-bottom: 1px solid var(--border); flex-wrap: wrap;
+  }
+  .stat {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 0.5rem 1rem; display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem;
+  }
+  .stat-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .stat-num { font-weight: 700; font-size: 0.95rem; }
+  .stat-label { color: var(--text2); }
+
+  .toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 2rem; gap: 1rem;
+  }
+  .search-input {
+    background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+    padding: 0.45rem 0.9rem; border-radius: 8px; font-size: 0.85rem; outline: none;
+    width: 220px; transition: border-color 0.15s; font-family: var(--font);
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--text2); }
+
+  .board {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem; padding: 0 2rem 2rem; max-width: 1200px; margin: 0 auto;
+  }
+  .column {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 12px; display: flex; flex-direction: column; min-height: 400px;
+  }
+  .col-header {
+    padding: 1rem 1.2rem; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .col-title { display: flex; align-items: center; gap: 0.6rem; font-weight: 600; font-size: 0.9rem; }
+  .col-pill { width: 10px; height: 10px; border-radius: 50%; }
+  .col-count {
+    background: var(--bg3); border: 1px solid var(--border); color: var(--text2);
+    font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 20px;
+  }
+  .col-body {
+    padding: 0.8rem; flex: 1; display: flex; flex-direction: column;
+    gap: 0.6rem; min-height: 100px;
+  }
+  .col-body.drag-over { background: rgba(108,99,255,0.07); border-radius: 8px; }
+  .card {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 10px;
+    padding: 0.9rem 1rem; cursor: grab; transition: border-color 0.15s; position: relative;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card.dragging { opacity: 0.35; }
+  .card-title { font-size: 0.88rem; font-weight: 600; margin-bottom: 0.35rem; line-height: 1.4; }
+  .card-desc { font-size: 0.78rem; color: var(--text2); line-height: 1.5; margin-bottom: 0.65rem; }
+  .card-footer { display: flex; align-items: center; justify-content: space-between; }
+  .card-tags { display: flex; gap: 0.4rem; }
+  .tag { font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.3px; }
+  .tag-bug { background: rgba(255,101,132,0.15); color: var(--todo); }
+  .tag-feat { background: rgba(108,99,255,0.15); color: var(--accent); }
+  .tag-ui { background: rgba(78,204,163,0.15); color: var(--done); }
+  .tag-api { background: rgba(255,200,87,0.15); color: var(--prog); }
+  .card-actions { display: flex; gap: 0.3rem; }
+  .icon-btn {
+    background: none; border: none; color: var(--text2); cursor: pointer;
+    font-size: 0.8rem; padding: 3px 7px; border-radius: 6px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .icon-btn:hover { background: var(--border); color: var(--text); }
+  .priority-dot { position: absolute; top: 10px; right: 10px; width: 7px; height: 7px; border-radius: 50%; }
+  .p-high { background: var(--todo); }
+  .p-med { background: var(--prog); }
+  .p-low { background: var(--done); }
+  .empty {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; color: var(--text2); font-size: 0.8rem; gap: 0.4rem;
+    padding: 2rem 0; opacity: 0.4;
+  }
+
+  /* MODAL */
+  .modal-bg {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+    z-index: 200; align-items: center; justify-content: center;
+  }
+  .modal-bg.open { display: flex; }
+  .modal {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 14px;
+    padding: 1.8rem; width: 430px; max-width: 95vw;
+  }
+  .modal h2 { font-size: 1rem; margin-bottom: 1.2rem; font-weight: 700; }
+  .modal-field { margin-bottom: 0.9rem; }
+  .modal-field label { display: block; font-size: 0.75rem; color: var(--text2); margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.4px; }
+  .modal-field input, .modal-field textarea, .modal-field select {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text); padding: 0.6rem 0.8rem; border-radius: 8px;
+    font-family: var(--font); font-size: 0.88rem; outline: none; transition: border-color 0.15s;
+  }
+  .modal-field input:focus, .modal-field textarea:focus, .modal-field select:focus { border-color: var(--accent); }
+  .modal-field textarea { resize: vertical; min-height: 70px; }
+  .modal-field select option { background: var(--bg2); }
+  .modal-footer { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.2rem; }
+
+  .cache-badge {
+    font-size: 0.68rem; background: rgba(108,99,255,0.15); color: var(--accent);
+    padding: 2px 8px; border-radius: 10px; font-weight: 600;
+  }
+
+  @media (max-width: 700px) {
+    .board { grid-template-columns: 1fr; padding: 0 1rem 1rem; }
+    header { padding: 0 1rem; }
+    .stats-bar { padding: 0.75rem 1rem; }
+    .toolbar { padding: 0.75rem 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div id="authScreen">
+  <div class="auth-box">
+    <h1>Task<span>Board</span> Lite</h1>
+    <p>Προσωπικός Διαχειριστής Tasks</p>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('login')">Σύνδεση</button>
+      <button class="auth-tab" onclick="switchTab('register')">Εγγραφή</button>
+    </div>
+    <div class="field">
+      <label>Username</label>
+      <input type="text" id="authUsername" placeholder="username">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="authPassword" placeholder="••••••">
+    </div>
+    <button class="btn" onclick="doAuth()">Είσοδος</button>
+    <div class="error-msg" id="authError"></div>
+  </div>
+</div>
+
+<!-- APP SCREEN -->
+<div id="appScreen">
+  <header>
+    <div class="logo">Task<span>Board</span> Lite</div>
+    <div class="header-right">
+      <span class="user-badge" id="userBadge">—</span>
+      <button class="btn-ghost" onclick="logout()">Αποσύνδεση</button>
+    </div>
+  </header>
+
+  <div class="stats-bar" id="statsBar"></div>
+
+  <div class="toolbar">
+    <input type="text" class="search-input" id="searchInput" placeholder="🔍 Αναζήτηση..." oninput="renderAll()">
+    <button class="btn-sm" onclick="openModal()">+ Νέο Task</button>
+  </div>
+
+  <div class="board">
+    <div class="column" ondragover="onDragOver(event,'todo')" ondrop="onDrop(event,'todo')" ondragleave="onDragLeave(event)">
+      <div class="col-header">
+        <div class="col-title"><div class="col-pill" style="background:var(--todo)"></div>To Do</div>
+        <span class="col-count" id="count-todo">0</span>
+      </div>
+      <div class="col-body" id="body-todo"></div>
+    </div>
+    <div class="column" ondragover="onDragOver(event,'progress')" ondrop="onDrop(event,'progress')" ondragleave="onDragLeave(event)">
+      <div class="col-header">
+        <div class="col-title"><div class="col-pill" style="background:var(--prog)"></div>In Progress</div>
+        <span class="col-count" id="count-progress">0</span>
+      </div>
+      <div class="col-body" id="body-progress"></div>
+    </div>
+    <div class="column" ondragover="onDragOver(event,'done')" ondrop="onDrop(event,'done')" ondragleave="onDragLeave(event)">
+      <div class="col-header">
+        <div class="col-title"><div class="col-pill" style="background:var(--done)"></div>Done</div>
+        <span class="col-count" id="count-done">0</span>
+      </div>
+      <div class="col-body" id="body-done"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modalBg" onclick="closeModalOnBg(event)">
+  <div class="modal">
+    <h2 id="modalTitle">Νέο Task</h2>
+    <div class="modal-field">
+      <label>Τίτλος *</label>
+      <input type="text" id="fTitle" placeholder="Τίτλος task...">
+    </div>
+    <div class="modal-field">
+      <label>Περιγραφή</label>
+      <textarea id="fDesc" placeholder="Προαιρετική περιγραφή..."></textarea>
+    </div>
+    <div class="modal-field">
+      <label>Tag</label>
+      <select id="fTag">
+        <option value="feat">Feature</option>
+        <option value="bug">Bug</option>
+        <option value="ui">UI</option>
+        <option value="api">API</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>Προτεραιότητα</label>
+      <select id="fPriority">
+        <option value="high">Υψηλή</option>
+        <option value="med">Μεσαία</option>
+        <option value="low">Χαμηλή</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>Στήλη</label>
+      <select id="fStatus">
+        <option value="todo">To Do</option>
+        <option value="progress">In Progress</option>
+        <option value="done">Done</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal()">Άκυρο</button>
+      <button class="btn-sm" onclick="saveTask()">Αποθήκευση</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api';
+let token = localStorage.getItem('tbl_token') || null;
+let currentUser = JSON.parse(localStorage.getItem('tbl_user') || 'null');
+let currentBoardId = null;
+let tasks = [];
+let dragId = null;
+let editId = null;
+let authMode = 'login';
+
+// ── AUTH ──────────────────────────────────────────────────────────────────
+function switchTab(mode) {
+  authMode = mode;
+  document.querySelectorAll('.auth-tab').forEach((t, i) => {
+    t.classList.toggle('active', (mode === 'login' && i === 0) || (mode === 'register' && i === 1));
+  });
+  document.querySelector('.btn').textContent = mode === 'login' ? 'Είσοδος' : 'Εγγραφή';
+  document.getElementById('authError').textContent = '';
+}
+
+async function doAuth() {
+  const username = document.getElementById('authUsername').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const errEl = document.getElementById('authError');
+  errEl.textContent = '';
+
+  if (!username || !password) { errEl.textContent = 'Συμπλήρωσε username και password'; return; }
+
+  try {
+    const res = await fetch(`${API}/auth/${authMode}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error || 'Σφάλμα'; return; }
+
+    token = data.token;
+    currentUser = data.user;
+    localStorage.setItem('tbl_token', token);
+    localStorage.setItem('tbl_user', JSON.stringify(currentUser));
+    await initApp();
+  } catch (e) {
+    errEl.textContent = 'Σφάλμα σύνδεσης με τον server';
+  }
+}
+
+function logout() {
+  token = null; currentUser = null; tasks = [];
+  localStorage.removeItem('tbl_token');
+  localStorage.removeItem('tbl_user');
+  document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('authScreen').style.display = 'flex';
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+async function initApp() {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  document.getElementById('userBadge').textContent = '👤 ' + currentUser.username;
+
+  // Φόρτωσε boards και πάρε τον πρώτο
+  const res = await apiFetch('/boards');
+  if (!res.ok) { logout(); return; }
+  const data = await res.json();
+  const boards = data.data;
+  if (boards.length === 0) { logout(); return; }
+  currentBoardId = boards[0].id;
+  await loadTasks();
+}
+
+async function loadTasks() {
+  const res = await apiFetch(`/tasks?board_id=${currentBoardId}`);
+  if (!res.ok) return;
+  const data = await res.json();
+
+  // Δείξε αν ήρθε από cache
+  const bar = document.getElementById('statsBar');
+  const cacheBadge = data.source === 'cache'
+    ? '<span class="cache-badge">⚡ cache hit</span>'
+    : '';
+
+  tasks = data.data;
+  renderAll(cacheBadge);
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────
+function renderAll(cacheBadge = '') {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const cols = ['todo', 'progress', 'done'];
+
+  cols.forEach(col => {
+    const filtered = tasks.filter(t =>
+      t.status === col &&
+      (!q || t.title.toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q))
+    );
+    document.getElementById('count-' + col).textContent = filtered.length;
+    const body = document.getElementById('body-' + col);
+
+    if (filtered.length === 0) {
+      body.innerHTML = '<div class="empty">✦<br>Κανένα task</div>';
+    } else {
+      body.innerHTML = filtered.map(cardHTML).join('');
+      filtered.forEach(t => {
+        const el = document.getElementById('c-' + t.id);
+        el.addEventListener('dragstart', () => { dragId = t.id; el.classList.add('dragging'); });
+        el.addEventListener('dragend', () => { el.classList.remove('dragging'); dragId = null; });
+      });
+    }
+  });
+
+  renderStats(cacheBadge);
+}
+
+function cardHTML(t) {
+  return `<div class="card" id="c-${t.id}" draggable="true">
+    <div class="priority-dot p-${t.priority}"></div>
+    <div class="card-title">${esc(t.title)}</div>
+    ${t.description ? `<div class="card-desc">${esc(t.description)}</div>` : ''}
+    <div class="card-footer">
+      <div class="card-tags"><span class="tag tag-${t.tag}">${t.tag.toUpperCase()}</span></div>
+      <div class="card-actions">
+        <button class="icon-btn" onclick="editTask(${t.id})">✎</button>
+        <button class="icon-btn" onclick="deleteTask(${t.id})">✕</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderStats(cacheBadge = '') {
+  const total = tasks.length;
+  const todo = tasks.filter(t => t.status === 'todo').length;
+  const prog = tasks.filter(t => t.status === 'progress').length;
+  const done = tasks.filter(t => t.status === 'done').length;
+  const pct = total ? Math.round(done / total * 100) : 0;
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat"><div class="stat-dot" style="background:var(--text2)"></div><span class="stat-num">${total}</span><span class="stat-label">Σύνολο</span></div>
+    <div class="stat"><div class="stat-dot" style="background:var(--todo)"></div><span class="stat-num">${todo}</span><span class="stat-label">To Do</span></div>
+    <div class="stat"><div class="stat-dot" style="background:var(--prog)"></div><span class="stat-num">${prog}</span><span class="stat-label">In Progress</span></div>
+    <div class="stat"><div class="stat-dot" style="background:var(--done)"></div><span class="stat-num">${done}</span><span class="stat-label">Done</span></div>
+    <div class="stat"><div class="stat-dot" style="background:var(--accent)"></div><span class="stat-num">${pct}%</span><span class="stat-label">Ολοκληρωμένα</span></div>
+    ${cacheBadge}
+  `;
+}
+
+// ── DRAG & DROP ───────────────────────────────────────────────────────────
+function onDragOver(e, col) {
+  e.preventDefault();
+  document.getElementById('body-' + col).classList.add('drag-over');
+}
+function onDragLeave() {
+  document.querySelectorAll('.col-body').forEach(b => b.classList.remove('drag-over'));
+}
+async function onDrop(e, col) {
+  e.preventDefault();
+  onDragLeave();
+  if (!dragId) return;
+  const task = tasks.find(t => t.id === dragId);
+  if (!task || task.status === col) return;
+
+  // Optimistic update
+  tasks = tasks.map(t => t.id === dragId ? { ...t, status: col } : t);
+  renderAll();
+
+  await apiFetch(`/tasks/${dragId}`, 'PATCH', { status: col });
+  await loadTasks();
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────
+function openModal(status = 'todo') {
+  editId = null;
+  document.getElementById('modalTitle').textContent = 'Νέο Task';
+  document.getElementById('fTitle').value = '';
+  document.getElementById('fDesc').value = '';
+  document.getElementById('fTag').value = 'feat';
+  document.getElementById('fPriority').value = 'med';
+  document.getElementById('fStatus').value = status;
+  document.getElementById('modalBg').classList.add('open');
+  setTimeout(() => document.getElementById('fTitle').focus(), 50);
+}
+function closeModal() { document.getElementById('modalBg').classList.remove('open'); }
+function closeModalOnBg(e) { if (e.target === document.getElementById('modalBg')) closeModal(); }
+
+function editTask(id) {
+  const t = tasks.find(t => t.id === id);
+  if (!t) return;
+  editId = id;
+  document.getElementById('modalTitle').textContent = 'Επεξεργασία Task';
+  document.getElementById('fTitle').value = t.title;
+  document.getElementById('fDesc').value = t.description || '';
+  document.getElementById('fTag').value = t.tag;
+  document.getElementById('fPriority').value = t.priority;
+  document.getElementById('fStatus').value = t.status;
+  document.getElementById('modalBg').classList.add('open');
+}
+
+async function saveTask() {
+  const title = document.getElementById('fTitle').value.trim();
+  if (!title) { document.getElementById('fTitle').focus(); return; }
+
+  const payload = {
+    board_id: currentBoardId,
+    title,
+    description: document.getElementById('fDesc').value.trim() || null,
+    tag: document.getElementById('fTag').value,
+    priority: document.getElementById('fPriority').value,
+    status: document.getElementById('fStatus').value,
+  };
+
+  if (editId) {
+    await apiFetch(`/tasks/${editId}`, 'PUT', payload);
+  } else {
+    await apiFetch('/tasks', 'POST', payload);
+  }
+
+  closeModal();
+  await loadTasks();
+}
+
+async function deleteTask(id) {
+  await apiFetch(`/tasks/${id}`, 'DELETE');
+  tasks = tasks.filter(t => t.id !== id);
+  renderAll();
+  await loadTasks();
+}
+
+// ── API HELPER ────────────────────────────────────────────────────────────
+function apiFetch(path, method = 'GET', body = null) {
+  const opts = {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  return fetch(API + path, opts);
+}
+
+function esc(s) {
+  return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ── KEYBOARD SHORTCUTS ────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+  if (e.key === 'Enter' && document.getElementById('authScreen').style.display !== 'none') doAuth();
+});
+
+// ── BOOT ──────────────────────────────────────────────────────────────────
+if (token && currentUser) {
+  initApp();
+} else {
+  document.getElementById('authScreen').style.display = 'flex';
+}
+</script>
+</body>
+</html>
