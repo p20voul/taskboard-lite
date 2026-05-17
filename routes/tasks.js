@@ -1,35 +1,25 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
+const { getDb } = require('../db');
 const auth = require('../middleware/auth');
 const cache = require('../cache');
 
 router.use(auth);
 
-// Βοηθητική συνάρτηση: επαληθεύει ότι το board ανήκει στον χρήστη
-function getBoardForUser(boardId, userId) {
-  return db.prepare(
-    'SELECT id FROM boards WHERE id = ? AND user_id = ?'
-  ).get(boardId, userId);
+function getBoardForUser(db, boardId, userId) {
+  return db.prepare('SELECT id FROM boards WHERE id = ? AND user_id = ?').get(boardId, userId);
 }
 
 // GET /api/tasks?board_id=X
-// Λίστα tasks ενός board με cache
 router.get('/', (req, res) => {
+  const db = getDb();
   const { board_id } = req.query;
-  if (!board_id) {
-    return res.status(400).json({ error: 'Απαιτείται παράμετρος board_id' });
-  }
-
-  if (!getBoardForUser(board_id, req.user.id)) {
-    return res.status(403).json({ error: 'Δεν έχετε πρόσβαση σε αυτό το board' });
-  }
+  if (!board_id) return res.status(400).json({ error: 'Απαιτείται παράμετρος board_id' });
+  if (!getBoardForUser(db, board_id, req.user.id)) return res.status(403).json({ error: 'Δεν έχετε πρόσβαση' });
 
   const cacheKey = `tasks:board:${board_id}`;
   const cached = cache.get(cacheKey);
-  if (cached) {
-    return res.json({ source: 'cache', data: cached });
-  }
+  if (cached) return res.json({ source: 'cache', data: cached });
 
   const tasks = db.prepare(
     `SELECT * FROM tasks WHERE board_id = ? ORDER BY
@@ -42,171 +32,92 @@ router.get('/', (req, res) => {
 });
 
 // GET /api/tasks/stats?board_id=X
-// Στατιστικά tasks ανά status
 router.get('/stats', (req, res) => {
+  const db = getDb();
   const { board_id } = req.query;
-  if (!board_id) {
-    return res.status(400).json({ error: 'Απαιτείται παράμετρος board_id' });
-  }
+  if (!board_id) return res.status(400).json({ error: 'Απαιτείται παράμετρος board_id' });
+  if (!getBoardForUser(db, board_id, req.user.id)) return res.status(403).json({ error: 'Δεν έχετε πρόσβαση' });
 
-  if (!getBoardForUser(board_id, req.user.id)) {
-    return res.status(403).json({ error: 'Δεν έχετε πρόσβαση σε αυτό το board' });
-  }
-
-  const rows = db.prepare(
-    'SELECT status, COUNT(*) as count FROM tasks WHERE board_id = ? GROUP BY status'
-  ).all(board_id);
-
+  const rows = db.prepare('SELECT status, COUNT(*) as count FROM tasks WHERE board_id = ? GROUP BY status').all(board_id);
   const stats = { todo: 0, progress: 0, done: 0, total: 0 };
-  rows.forEach(r => {
-    stats[r.status] = r.count;
-    stats.total += r.count;
-  });
-  stats.completion_pct = stats.total
-    ? Math.round((stats.done / stats.total) * 100)
-    : 0;
-
+  rows.forEach(r => { stats[r.status] = r.count; stats.total += r.count; });
+  stats.completion_pct = stats.total ? Math.round((stats.done / stats.total) * 100) : 0;
   res.json(stats);
 });
 
 // GET /api/tasks/:id
-// Ανάκτηση ενός task
 router.get('/:id', (req, res) => {
+  const db = getDb();
   const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
-  if (!task) {
-    return res.status(404).json({ error: 'Task δεν βρέθηκε' });
-  }
-
-  if (!getBoardForUser(task.board_id, req.user.id)) {
-    return res.status(403).json({ error: 'Δεν έχετε πρόσβαση σε αυτό το task' });
-  }
-
+  if (!task) return res.status(404).json({ error: 'Task δεν βρέθηκε' });
+  if (!getBoardForUser(db, task.board_id, req.user.id)) return res.status(403).json({ error: 'Δεν έχετε πρόσβαση' });
   res.json(task);
 });
 
 // POST /api/tasks
-// Δημιουργία νέου task
 router.post('/', (req, res) => {
+  const db = getDb();
   const { board_id, title, description, status, tag, priority } = req.body;
-
-  if (!board_id || !title || title.trim() === '') {
-    return res.status(400).json({ error: 'board_id και title είναι υποχρεωτικά' });
-  }
-
-  if (!getBoardForUser(board_id, req.user.id)) {
-    return res.status(403).json({ error: 'Δεν έχετε πρόσβαση σε αυτό το board' });
-  }
-
-  const validStatuses = ['todo', 'progress', 'done'];
-  const validTags = ['feat', 'bug', 'ui', 'api'];
-  const validPriorities = ['high', 'med', 'low'];
-
-  if (status && !validStatuses.includes(status)) {
-    return res.status(400).json({ error: 'Μη έγκυρο status' });
-  }
-  if (tag && !validTags.includes(tag)) {
-    return res.status(400).json({ error: 'Μη έγκυρο tag' });
-  }
-  if (priority && !validPriorities.includes(priority)) {
-    return res.status(400).json({ error: 'Μη έγκυρη priority' });
-  }
+  if (!board_id || !title || !title.trim()) return res.status(400).json({ error: 'board_id και title είναι υποχρεωτικά' });
+  if (!getBoardForUser(db, board_id, req.user.id)) return res.status(403).json({ error: 'Δεν έχετε πρόσβαση' });
 
   const result = db.prepare(
-    `INSERT INTO tasks (board_id, title, description, status, tag, priority)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(
-    board_id,
-    title.trim(),
-    description || null,
-    status || 'todo',
-    tag || 'feat',
-    priority || 'med'
-  );
+    `INSERT INTO tasks (board_id, title, description, status, tag, priority) VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(board_id, title.trim(), description || null, status || 'todo', tag || 'feat', priority || 'med');
 
   cache.invalidate(`tasks:board:${board_id}`);
-
   const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(result.lastInsertRowid);
   res.status(201).json(task);
 });
 
 // PUT /api/tasks/:id
-// Πλήρης ενημέρωση task
 router.put('/:id', (req, res) => {
+  const db = getDb();
   const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
   if (!task) return res.status(404).json({ error: 'Task δεν βρέθηκε' });
-  if (!getBoardForUser(task.board_id, req.user.id)) {
-    return res.status(403).json({ error: 'Δεν έχετε πρόσβαση' });
-  }
+  if (!getBoardForUser(db, task.board_id, req.user.id)) return res.status(403).json({ error: 'Δεν έχετε πρόσβαση' });
 
   const { title, description, status, tag, priority } = req.body;
-  if (!title || title.trim() === '') {
-    return res.status(400).json({ error: 'Ο τίτλος είναι υποχρεωτικός' });
-  }
+  if (!title || !title.trim()) return res.status(400).json({ error: 'Ο τίτλος είναι υποχρεωτικός' });
 
   db.prepare(
-    `UPDATE tasks SET title=?, description=?, status=?, tag=?, priority=?,
-     updated_at=CURRENT_TIMESTAMP WHERE id=?`
-  ).run(
-    title.trim(),
-    description || null,
-    status || task.status,
-    tag || task.tag,
-    priority || task.priority,
-    req.params.id
-  );
+    `UPDATE tasks SET title=?, description=?, status=?, tag=?, priority=?, updated_at=datetime('now') WHERE id=?`
+  ).run(title.trim(), description || null, status || task.status, tag || task.tag, priority || task.priority, req.params.id);
 
   cache.invalidate(`tasks:board:${task.board_id}`);
-
-  const updated = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
-  res.json(updated);
+  res.json(db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id));
 });
 
 // PATCH /api/tasks/:id
-// Μερική ενημέρωση task (π.χ. μόνο status για drag-and-drop)
 router.patch('/:id', (req, res) => {
+  const db = getDb();
   const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
   if (!task) return res.status(404).json({ error: 'Task δεν βρέθηκε' });
-  if (!getBoardForUser(task.board_id, req.user.id)) {
-    return res.status(403).json({ error: 'Δεν έχετε πρόσβαση' });
-  }
+  if (!getBoardForUser(db, task.board_id, req.user.id)) return res.status(403).json({ error: 'Δεν έχετε πρόσβαση' });
 
   const fields = ['title', 'description', 'status', 'tag', 'priority'];
   const updates = [];
   const values = [];
+  fields.forEach(f => { if (req.body[f] !== undefined) { updates.push(`${f} = ?`); values.push(req.body[f]); } });
+  if (!updates.length) return res.status(400).json({ error: 'Δεν δόθηκαν πεδία' });
 
-  fields.forEach(f => {
-    if (req.body[f] !== undefined) {
-      updates.push(`${f} = ?`);
-      values.push(req.body[f]);
-    }
-  });
-
-  if (updates.length === 0) {
-    return res.status(400).json({ error: 'Δεν δόθηκαν πεδία για ενημέρωση' });
-  }
-
-  updates.push('updated_at = CURRENT_TIMESTAMP');
+  updates.push(`updated_at = datetime('now')`);
   values.push(req.params.id);
-
   db.prepare(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`).run(...values);
-  cache.invalidate(`tasks:board:${task.board_id}`);
 
-  const updated = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
-  res.json(updated);
+  cache.invalidate(`tasks:board:${task.board_id}`);
+  res.json(db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id));
 });
 
 // DELETE /api/tasks/:id
-// Διαγραφή task
 router.delete('/:id', (req, res) => {
+  const db = getDb();
   const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
   if (!task) return res.status(404).json({ error: 'Task δεν βρέθηκε' });
-  if (!getBoardForUser(task.board_id, req.user.id)) {
-    return res.status(403).json({ error: 'Δεν έχετε πρόσβαση' });
-  }
+  if (!getBoardForUser(db, task.board_id, req.user.id)) return res.status(403).json({ error: 'Δεν έχετε πρόσβαση' });
 
   db.prepare('DELETE FROM tasks WHERE id = ?').run(req.params.id);
   cache.invalidate(`tasks:board:${task.board_id}`);
-
   res.status(204).send();
 });
 
