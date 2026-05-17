@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaskBoard Lite</title>
+<style>
+  :root {
+    --bg: #0f0f11;
+    --bg2: #1a1a1f;
+    --bg3: #222228;
+    --border: #2e2e38;
+    --text: #e8e8f0;
+    --text2: #8888a0;
+    --accent: #6c63ff;
+    --accent2: #ff6584;
+    --todo: #ff6584;
+    --prog: #ffc857;
+    --done: #4ecca3;
+    --radius: 10px;
+    --font: 'Segoe UI', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+
+  /* HEADER */
+  header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent); }
+  .header-actions { display: flex; gap: 0.75rem; align-items: center; }
+  .btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 0.45rem 1rem;
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    padding: 0.45rem 0.9rem;
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--text); }
+
+  /* STATS BAR */
+  .stats-bar {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem 2rem;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+  }
+  .stat {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.6rem 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.85rem;
+  }
+  .stat-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .stat-num { font-weight: 700; font-size: 1rem; }
+  .stat-label { color: var(--text2); }
+
+  /* BOARD */
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    padding: 1.5rem 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  /* COLUMN */
+  .column {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    min-height: 500px;
+  }
+  .col-header {
+    padding: 1rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .col-title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  .col-pill {
+    width: 10px; height: 10px; border-radius: 50%;
+  }
+  .col-count {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+  .col-body {
+    padding: 0.8rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    min-height: 200px;
+  }
+  .col-body.drag-over { background: rgba(108,99,255,0.06); border-radius: 8px; }
+
+  /* CARD */
+  .card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+    cursor: grab;
+    transition: border-color 0.15s, transform 0.1s;
+    position: relative;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card.dragging { opacity: 0.4; transform: scale(0.97); }
+  .card-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.4rem; line-height: 1.4; }
+  .card-desc { font-size: 0.8rem; color: var(--text2); line-height: 1.5; margin-bottom: 0.7rem; }
+  .card-footer { display: flex; align-items: center; justify-content: space-between; }
+  .card-tags { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  .tag {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .tag-bug { background: rgba(255,101,132,0.15); color: var(--todo); }
+  .tag-feat { background: rgba(108,99,255,0.15); color: var(--accent); }
+  .tag-ui { background: rgba(78,204,163,0.15); color: var(--done); }
+  .tag-api { background: rgba(255,200,87,0.15); color: var(--prog); }
+  .card-actions { display: flex; gap: 0.4rem; }
+  .icon-btn {
+    background: none;
+    border: none;
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 3px 6px;
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s;
+    line-height: 1;
+  }
+  .icon-btn:hover { background: var(--border); color: var(--text); }
+  .priority-dot {
+    position: absolute;
+    top: 10px; right: 10px;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+  }
+  .p-high { background: var(--todo); }
+  .p-med { background: var(--prog); }
+  .p-low { background: var(--done); }
+
+  /* ADD CARD BTN */
+  .add-card-btn {
+    width: 100%;
+    background: none;
+    border: 1px dashed var(--border);
+    color: var(--text2);
+    padding: 0.6rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    transition: border-color 0.15s, color 0.15s;
+    margin-top: auto;
+  }
+  .add-card-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* MODAL */
+  .modal-bg {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-bg.open { display: flex; }
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.8rem;
+    width: 440px;
+    max-width: 95vw;
+  }
+  .modal h2 { font-size: 1.1rem; margin-bottom: 1.2rem; font-weight: 700; }
+  .field { margin-bottom: 1rem; }
+  .field label { display: block; font-size: 0.8rem; color: var(--text2); margin-bottom: 0.4rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+  .field input, .field textarea, .field select {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.6rem 0.8rem;
+    border-radius: 8px;
+    font-family: var(--font);
+    font-size: 0.88rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--accent); }
+  .field textarea { resize: vertical; min-height: 80px; }
+  .field select option { background: var(--bg2); }
+  .modal-footer { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.4rem; }
+
+  /* EMPTY STATE */
+  .empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text2);
+    font-size: 0.82rem;
+    gap: 0.4rem;
+    padding: 2rem 0;
+    opacity: 0.5;
+  }
+  .empty-icon { font-size: 1.8rem; }
+
+  /* SEARCH */
+  .search-input {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.4rem 0.9rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    outline: none;
+    width: 200px;
+    transition: border-color 0.15s;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--text2); }
+
+  @media (max-width: 700px) {
+    .board { grid-template-columns: 1fr; }
+    .stats-bar { flex-wrap: wrap; gap: 0.5rem; }
+    header { padding: 0 1rem; }
+    .board { padding: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Task<span>Board</span> Lite</div>
+  <div class="header-actions">
+    <input type="text" class="search-input" id="searchInput" placeholder="🔍 Αναζήτηση...">
+    <button class="btn" onclick="openModal()">+ Νέο Task</button>
+  </div>
+</header>
+
+<div class="stats-bar" id="statsBar"></div>
+
+<div class="board" id="board">
+  <div class="column" id="col-todo" ondragover="onDragOver(event,'todo')" ondrop="onDrop(event,'todo')" ondragleave="onDragLeave(event)">
+    <div class="col-header">
+      <div class="col-title">
+        <div class="col-pill" style="background:var(--todo)"></div>
+        To Do
+      </div>
+      <span class="col-count" id="count-todo">0</span>
+    </div>
+    <div class="col-body" id="body-todo"></div>
+  </div>
+
+  <div class="column" id="col-progress" ondragover="onDragOver(event,'progress')" ondrop="onDrop(event,'progress')" ondragleave="onDragLeave(event)">
+    <div class="col-header">
+      <div class="col-title">
+        <div class="col-pill" style="background:var(--prog)"></div>
+        In Progress
+      </div>
+      <span class="col-count" id="count-progress">0</span>
+    </div>
+    <div class="col-body" id="body-progress"></div>
+  </div>
+
+  <div class="column" id="col-done" ondragover="onDragOver(event,'done')" ondrop="onDrop(event,'done')" ondragleave="onDragLeave(event)">
+    <div class="col-header">
+      <div class="col-title">
+        <div class="col-pill" style="background:var(--done)"></div>
+        Done
+      </div>
+      <span class="col-count" id="count-done">0</span>
+    </div>
+    <div class="col-body" id="body-done"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modalBg" onclick="closeModalOnBg(event)">
+  <div class="modal">
+    <h2 id="modalTitle">Νέο Task</h2>
+    <div class="field">
+      <label>Τίτλος</label>
+      <input type="text" id="fTitle" placeholder="π.χ. Υλοποίηση login endpoint">
+    </div>
+    <div class="field">
+      <label>Περιγραφή</label>
+      <textarea id="fDesc" placeholder="Προαιρετική περιγραφή..."></textarea>
+    </div>
+    <div class="field">
+      <label>Κατηγορία</label>
+      <select id="fTag">
+        <option value="feat">Feature</option>
+        <option value="bug">Bug</option>
+        <option value="ui">UI</option>
+        <option value="api">API</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Προτεραιότητα</label>
+      <select id="fPriority">
+        <option value="high">Υψηλή</option>
+        <option value="med">Μεσαία</option>
+        <option value="low">Χαμηλή</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Στήλη</label>
+      <select id="fStatus">
+        <option value="todo">To Do</option>
+        <option value="progress">In Progress</option>
+        <option value="done">Done</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal()">Άκυρο</button>
+      <button class="btn" onclick="saveTask()">Αποθήκευση</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let tasks = JSON.parse(localStorage.getItem('tbl_tasks') || '[]');
+let dragId = null;
+let editId = null;
+let searchQuery = '';
+
+const TAGS = { feat:'feat', bug:'bug', ui:'ui', api:'api' };
+const TAG_LABELS = { feat:'Feature', bug:'Bug', ui:'UI', api:'API' };
+
+function save() { localStorage.setItem('tbl_tasks', JSON.stringify(tasks)); }
+
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+function renderAll() {
+  const cols = ['todo','progress','done'];
+  cols.forEach(col => {
+    const body = document.getElementById('body-' + col);
+    const filtered = tasks.filter(t => t.status === col && (
+      !searchQuery ||
+      t.title.toLowerCase().includes(searchQuery) ||
+      (t.desc||'').toLowerCase().includes(searchQuery)
+    ));
+    document.getElementById('count-' + col).textContent = filtered.length;
+    if (filtered.length === 0) {
+      body.innerHTML = `<div class="empty"><div class="empty-icon">✦</div><span>Κανένα task</span></div>`;
+    } else {
+      body.innerHTML = filtered.map(cardHTML).join('');
+      filtered.forEach(t => {
+        const el = document.getElementById('card-' + t.id);
+        el.addEventListener('dragstart', e => { dragId = t.id; el.classList.add('dragging'); });
+        el.addEventListener('dragend', e => { el.classList.remove('dragging'); dragId = null; });
+      });
+    }
+  });
+  renderStats();
+}
+
+function cardHTML(t) {
+  const tagClass = 'tag-' + t.tag;
+  const tagLabel = TAG_LABELS[t.tag] || t.tag;
+  const pClass = 'p-' + t.priority;
+  return `
+  <div class="card" id="card-${t.id}" draggable="true">
+    <div class="priority-dot ${pClass}" title="Προτεραιότητα: ${t.priority}"></div>
+    <div class="card-title">${esc(t.title)}</div>
+    ${t.desc ? `<div class="card-desc">${esc(t.desc)}</div>` : ''}
+    <div class="card-footer">
+      <div class="card-tags"><span class="tag ${tagClass}">${tagLabel}</span></div>
+      <div class="card-actions">
+        <button class="icon-btn" onclick="editTask('${t.id}')" title="Επεξεργασία">✎</button>
+        <button class="icon-btn" onclick="deleteTask('${t.id}')" title="Διαγραφή">✕</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function renderStats() {
+  const total = tasks.length;
+  const todo = tasks.filter(t=>t.status==='todo').length;
+  const prog = tasks.filter(t=>t.status==='progress').length;
+  const done = tasks.filter(t=>t.status==='done').length;
+  const pct = total ? Math.round(done/total*100) : 0;
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat"><div class="stat-dot" style="background:var(--text2)"></div><span class="stat-num">${total}</span><span class="stat-label">Σύνολο</span></div>
+    <div class="stat"><div class="stat-dot" style="background:var(--todo)"></div><span class="stat-num">${todo}</span><span class="stat-label">To Do</span></div>
+    <div class="stat"><div class="stat-dot" style="background:var(--prog)"></div><span class="stat-num">${prog}</span><span class="stat-label">In Progress</span></div>
+    <div class="stat"><div class="stat-dot" style="background:var(--done)"></div><span class="stat-num">${done}</span><span class="stat-label">Done</span></div>
+    <div class="stat"><div class="stat-dot" style="background:var(--accent)"></div><span class="stat-num">${pct}%</span><span class="stat-label">Ολοκληρωμένα</span></div>
+  `;
+}
+
+function openModal(status='todo') {
+  editId = null;
+  document.getElementById('modalTitle').textContent = 'Νέο Task';
+  document.getElementById('fTitle').value = '';
+  document.getElementById('fDesc').value = '';
+  document.getElementById('fTag').value = 'feat';
+  document.getElementById('fPriority').value = 'med';
+  document.getElementById('fStatus').value = status;
+  document.getElementById('modalBg').classList.add('open');
+  setTimeout(()=>document.getElementById('fTitle').focus(),50);
+}
+
+function closeModal() { document.getElementById('modalBg').classList.remove('open'); }
+function closeModalOnBg(e) { if(e.target===document.getElementById('modalBg')) closeModal(); }
+
+function editTask(id) {
+  const t = tasks.find(t=>t.id===id);
+  if(!t) return;
+  editId = id;
+  document.getElementById('modalTitle').textContent = 'Επεξεργασία Task';
+  document.getElementById('fTitle').value = t.title;
+  document.getElementById('fDesc').value = t.desc||'';
+  document.getElementById('fTag').value = t.tag;
+  document.getElementById('fPriority').value = t.priority;
+  document.getElementById('fStatus').value = t.status;
+  document.getElementById('modalBg').classList.add('open');
+  setTimeout(()=>document.getElementById('fTitle').focus(),50);
+}
+
+function saveTask() {
+  const title = document.getElementById('fTitle').value.trim();
+  if(!title) { document.getElementById('fTitle').focus(); return; }
+  const data = {
+    title,
+    desc: document.getElementById('fDesc').value.trim(),
+    tag: document.getElementById('fTag').value,
+    priority: document.getElementById('fPriority').value,
+    status: document.getElementById('fStatus').value,
+  };
+  if(editId) {
+    tasks = tasks.map(t => t.id===editId ? {...t,...data} : t);
+  } else {
+    tasks.push({ id: genId(), ...data, createdAt: Date.now() });
+  }
+  save(); closeModal(); renderAll();
+}
+
+function deleteTask(id) {
+  tasks = tasks.filter(t=>t.id!==id);
+  save(); renderAll();
+}
+
+function onDragOver(e, col) {
+  e.preventDefault();
+  document.getElementById('body-'+col).classList.add('drag-over');
+}
+function onDragLeave(e) {
+  document.querySelectorAll('.col-body').forEach(b=>b.classList.remove('drag-over'));
+}
+function onDrop(e, col) {
+  e.preventDefault();
+  onDragLeave(e);
+  if(!dragId) return;
+  tasks = tasks.map(t => t.id===dragId ? {...t, status:col} : t);
+  save(); renderAll();
+}
+
+document.getElementById('searchInput').addEventListener('input', e => {
+  searchQuery = e.target.value.trim().toLowerCase();
+  renderAll();
+});
+
+document.addEventListener('keydown', e => {
+  if(e.key==='Escape') closeModal();
+  if(e.key==='n' && !document.getElementById('modalBg').classList.contains('open') && document.activeElement.tagName!=='INPUT') openModal();
+});
+
+// Seed data για demo
+if(tasks.length===0) {
+  tasks = [
+    { id:'s1', title:'Σχεδιασμός βάσης δεδομένων', desc:'ER διάγραμμα και schema για tasks, users, boards', tag:'api', priority:'high', status:'done', createdAt:Date.now()-5 },
+    { id:'s2', title:'Υλοποίηση REST API', desc:'Endpoints: GET/POST/PUT/DELETE /tasks', tag:'api', priority:'high', status:'done', createdAt:Date.now()-4 },
+    { id:'s3', title:'Login & JWT authentication', desc:'SSO με ιδρυματικά credentials', tag:'feat', priority:'high', status:'progress', createdAt:Date.now()-3 },
+    { id:'s4', title:'Kanban drag-and-drop UI', desc:'Σύρσιμο καρτών μεταξύ στηλών', tag:'ui', priority:'med', status:'progress', createdAt:Date.now()-2 },
+    { id:'s5', title:'In-memory caching', desc:'Cache για συχνά GET requests', tag:'feat', priority:'med', status:'todo', createdAt:Date.now()-1 },
+    { id:'s6', title:'Validation & error handling', desc:'400/404/500 responses με σαφή μηνύματα', tag:'bug', priority:'low', status:'todo', createdAt:Date.now() },
+    { id:'s7', title:'README & documentation', desc:'Setup, API docs, screenshots', tag:'ui', priority:'low', status:'todo', createdAt:Date.now() },
+  ];
+  save();
+}
+
+renderAll();
+</script>
+</body>
+</html>
