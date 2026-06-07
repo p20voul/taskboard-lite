@@ -86,10 +86,15 @@ function getDb() {
         },
         run(...params) {
           db.run(sql, params);
-          persist();
+          // ΣΗΜΑΝΤΙΚΟ: το SELECT last_insert_rowid() ΠΡΕΠΕΙ να γίνει πριν το persist().
+          // Η db.export() της sql.js μηδενίζει το last_insert_rowid(), οπότε αν
+          // περσιστάρουμε πρώτα, παίρνουμε πάντα 0 και τα FK relations σπάνε
+          // (π.χ. boards.user_id = 0 για όλους τους χρήστες).
           const idRes = db.exec('SELECT last_insert_rowid() as id');
           const lastId = idRes[0] ? idRes[0].values[0][0] : null;
-          return { lastInsertRowid: lastId, changes: db.getRowsModified() };
+          const changes = db.getRowsModified();
+          persist();
+          return { lastInsertRowid: lastId, changes };
         },
       };
     },
