@@ -3,6 +3,7 @@ const router = express.Router();
 const { getDb } = require('../db');
 const auth = require('../middleware/auth');
 const cache = require('../cache');
+const { validateTask, validateTaskPatch } = require('../middleware/validate');
 
 router.use(auth);
 
@@ -59,6 +60,11 @@ router.post('/', (req, res) => {
   const db = getDb();
   const { board_id, title, description, status, tag, priority } = req.body;
   if (!board_id || !title || !title.trim()) return res.status(400).json({ error: 'board_id και title είναι υποχρεωτικά' });
+
+  // ελεγχος μηκους + enum πριν πεσει στη db
+  const vErr = validateTask(req.body);
+  if (vErr) return res.status(400).json({ error: vErr });
+
   if (!getBoardForUser(db, board_id, req.user.id)) return res.status(403).json({ error: 'Δεν έχετε πρόσβαση' });
 
   const result = db.prepare(
@@ -80,6 +86,9 @@ router.put('/:id', (req, res) => {
   const { title, description, status, tag, priority } = req.body;
   if (!title || !title.trim()) return res.status(400).json({ error: 'Ο τίτλος είναι υποχρεωτικός' });
 
+  const vErr = validateTask(req.body);
+  if (vErr) return res.status(400).json({ error: vErr });
+
   db.prepare(
     `UPDATE tasks SET title=?, description=?, status=?, tag=?, priority=?, updated_at=datetime('now') WHERE id=?`
   ).run(title.trim(), description || null, status || task.status, tag || task.tag, priority || task.priority, req.params.id);
@@ -94,6 +103,10 @@ router.patch('/:id', (req, res) => {
   const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
   if (!task) return res.status(404).json({ error: 'Task δεν βρέθηκε' });
   if (!getBoardForUser(db, task.board_id, req.user.id)) return res.status(403).json({ error: 'Δεν έχετε πρόσβαση' });
+
+  // patch → μονο τα fields που εστειλε
+  const vErr = validateTaskPatch(req.body);
+  if (vErr) return res.status(400).json({ error: vErr });
 
   const fields = ['title', 'description', 'status', 'tag', 'priority'];
   const updates = [];

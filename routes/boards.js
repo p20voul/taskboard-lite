@@ -3,6 +3,7 @@ const router = express.Router();
 const { getDb } = require('../db');
 const auth = require('../middleware/auth');
 const cache = require('../cache');
+const { validateBoard } = require('../middleware/validate');
 
 router.use(auth);
 
@@ -21,6 +22,10 @@ router.post('/', (req, res) => {
   const db = getDb();
   const { title } = req.body;
   if (!title || !title.trim()) return res.status(400).json({ error: 'Ο τίτλος είναι υποχρεωτικός' });
+
+  // max length για να μη μπει 5kb title στη db
+  const vErr = validateBoard(req.body);
+  if (vErr) return res.status(400).json({ error: vErr });
 
   const result = db.prepare('INSERT INTO boards (user_id, title) VALUES (?, ?)').run(req.user.id, title.trim());
   cache.invalidate(`boards:user:${req.user.id}`);
