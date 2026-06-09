@@ -8,8 +8,18 @@ const { initDb } = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(express.json());
+// cors origin απο .env, comma separated. * αν δεν εχει οριστει
+const corsOrigin = process.env.CORS_ORIGIN || '*';
+const allowedOrigins = corsOrigin === '*'
+  ? '*'
+  : corsOrigin.split(',').map(o => o.trim()).filter(Boolean);
+
+app.use(cors({ origin: allowedOrigins }));
+
+// body size limit, default 100kb (το express default)
+const bodyLimit = process.env.BODY_LIMIT || '100kb';
+app.use(express.json({ limit: bodyLimit }));
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use((req, res, next) => {
@@ -36,6 +46,10 @@ initDb().then(() => {
 
   app.use((err, req, res, next) => {
     console.error('Server error:', err);
+    // payload too large απο express.json limit
+    if (err.type === 'entity.too.large') {
+      return res.status(413).json({ error: 'Το αίτημα είναι πολύ μεγάλο' });
+    }
     res.status(500).json({ error: 'Εσωτερικό σφάλμα διακομιστή' });
   });
 
