@@ -143,20 +143,6 @@ tasks   (id, board_id, title, description, status, tag, priority, created_at, up
    cache.invalidate('tasks:board:N')   ← σβήνει όλα τα keys με αυτό το prefix
 ```
 
-## Troubleshooting
-
-**`Error: JWT_SECRET is not set`** — Δεν έφτιαξες `.env` ή δεν έβαλες τιμή. Τρέξε `cp .env.example .env` και βάλε `JWT_SECRET` με την εντολή που είναι στην ενότητα Environment Variables.
-
-**`EADDRINUSE: address already in use :::3000`** — Άλλο πρόγραμμα ακούει στο port 3000. Είτε κλείσε το άλλο πρόγραμμα είτε βάλε `PORT=3001` στο `.env`.
-
-**`PayloadTooLargeError` / `413` στο response** — Έστειλες JSON μεγαλύτερο από το `BODY_LIMIT` (default `100kb`). Ανέβασέ το στο `.env`, π.χ. `BODY_LIMIT=500kb`.
-
-**CORS error στον browser console** — Το frontend τρέχει σε διαφορετικό origin από αυτό που επιτρέπει το `CORS_ORIGIN`. Πρόσθεσε το origin στο `.env` (comma-separated).
-
-**Η βάση φαίνεται άδεια μετά από restart** — Η `db/taskboard.db` δημιουργείται αυτόματα την πρώτη φορά. Αν την έσβησες κατά λάθος, απλά ξανατρέξε `npm start` και ξανακάνε register.
-
-**Login αποτυγχάνει με σωστά credentials μετά από register** — Παλιό bug με `last_insert_rowid()` (διορθώθηκε). Αν εξακολουθεί να συμβαίνει, σβήσε τη βάση (`rm db/taskboard.db`) και κάνε register ξανά.
-
 ## License
 
 Διανέμεται με την άδεια [MIT](LICENSE).
