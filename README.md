@@ -2,10 +2,12 @@
 
 Προσωπικός Διαχειριστής Tasks με Scrum-style Kanban Board.
 
+License: [MIT](LICENSE)
+
 ## Τεχνολογίες
 
 - **Backend:** Node.js, Express.js
-- **Βάση Δεδομένων:** SQLite (via better-sqlite3)
+- **Βάση Δεδομένων:** SQLite (via [sql.js](https://github.com/sql-js/sql.js) — pure JS / WASM)
 - **Authentication:** JWT (jsonwebtoken) + bcryptjs
 - **Caching:** In-memory cache (Map-based, TTL 60s)
 - **Frontend:** HTML5, CSS3, Vanilla JavaScript
@@ -20,7 +22,8 @@ taskboard-lite/
 ├── cache/
 │   └── index.js           # In-memory cache (get/set/invalidate)
 ├── middleware/
-│   └── auth.js            # JWT verification middleware
+│   ├── auth.js            # JWT verification middleware
+│   └── validate.js        # Input validation helpers
 ├── routes/
 │   ├── auth.js            # POST /api/auth/login|register|logout
 │   ├── boards.js          # GET/POST/DELETE /api/boards
@@ -44,12 +47,35 @@ cd taskboard-lite
 # 2. Εγκατάσταση dependencies
 npm install
 
-# 3. Εκκίνηση server
+# 3. Ρύθμιση environment
+cp .env.example .env
+# άνοιξε το .env και βάλε ένα JWT_SECRET (δες παρακάτω)
+
+# 4. Εκκίνηση server
 npm start
 
-# 4. Άνοιγμα browser
+# 5. Άνοιγμα browser
 # http://localhost:3000
 ```
+
+## Environment Variables
+
+Όλες οι ρυθμίσεις διαβάζονται από το `.env` (μέσω `dotenv`). Δες το `.env.example` για template.
+
+| Variable | Default | Περιγραφή |
+|----------|---------|-----------|
+| `PORT` | `3000` | Port στο οποίο τρέχει ο Express server |
+| `JWT_SECRET` | *(required)* | Μυστικό κλειδί για JWT υπογραφή. Δες παρακάτω πώς να το δημιουργήσεις |
+| `CORS_ORIGIN` | `*` | Επιτρεπόμενα origins, comma-separated (π.χ. `https://myapp.com,https://www.myapp.com`) |
+| `BODY_LIMIT` | `100kb` | Μέγιστο μέγεθος JSON body (π.χ. `500kb`, `1mb`) |
+
+### Δημιουργία JWT_SECRET
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Αντίγραψε το output στο `.env`. Αν δεν είναι σετ, το app θα σκάσει στο boot.
 
 ## API Endpoints
 
@@ -68,6 +94,7 @@ npm start
 | PUT | /api/tasks/:id | Πλήρης ενημέρωση | ✓ |
 | PATCH | /api/tasks/:id | Μερική ενημέρωση (status) | ✓ |
 | DELETE | /api/tasks/:id | Διαγραφή task | ✓ |
+| GET | /api/cache/stats | Cache statistics (debug) | ✗ |
 
 ## Σχήμα Βάσης Δεδομένων
 
@@ -82,6 +109,57 @@ tasks   (id, board_id, title, description, status, tag, priority, created_at, up
 Το GET `/api/tasks` χρησιμοποιεί in-memory cache με TTL 60 δευτερολέπτων.
 Κάθε write operation (POST/PUT/PATCH/DELETE) ακυρώνει αυτόματα το cache του board.
 Το frontend εμφανίζει ένδειξη "⚡ cache hit" όταν η απάντηση έρχεται από cache.
+
+### Ροή cache
+
+```
+   ┌────────────┐    GET /api/tasks?board_id=1
+   │  Browser   │ ─────────────────────────────┐
+   └────────────┘                              │
+                                               ▼
+                                      ┌─────────────────┐
+                                      │   Express app   │
+                                      └────────┬────────┘
+                                               │
+                              cache.get('tasks:board:1')
+                                               │
+                          ┌────────────────────┴────────────────────┐
+                          │                                         │
+                       HIT (< 60s)                              MISS / expired
+                          │                                         │
+                          ▼                                         ▼
+                 return cached JSON                       SELECT * FROM tasks
+                  (X-Cache: HIT)                            WHERE board_id=1
+                                                                    │
+                                                         cache.set('tasks:board:1', rows)
+                                                                    │
+                                                                    ▼
+                                                          return rows (X-Cache: MISS)
+
+
+   POST/PUT/PATCH/DELETE /api/tasks
+              │
+              ▼
+   cache.invalidate('tasks:board:N')   ← σβήνει όλα τα keys με αυτό το prefix
+```
+
+## Troubleshooting
+
+**`Error: JWT_SECRET is not set`** — Δεν έφτιαξες `.env` ή δεν έβαλες τιμή. Τρέξε `cp .env.example .env` και βάλε `JWT_SECRET` με την εντολή που είναι στην ενότητα Environment Variables.
+
+**`EADDRINUSE: address already in use :::3000`** — Άλλο πρόγραμμα ακούει στο port 3000. Είτε κλείσε το άλλο πρόγραμμα είτε βάλε `PORT=3001` στο `.env`.
+
+**`PayloadTooLargeError` / `413` στο response** — Έστειλες JSON μεγαλύτερο από το `BODY_LIMIT` (default `100kb`). Ανέβασέ το στο `.env`, π.χ. `BODY_LIMIT=500kb`.
+
+**CORS error στον browser console** — Το frontend τρέχει σε διαφορετικό origin από αυτό που επιτρέπει το `CORS_ORIGIN`. Πρόσθεσε το origin στο `.env` (comma-separated).
+
+**Η βάση φαίνεται άδεια μετά από restart** — Η `db/taskboard.db` δημιουργείται αυτόματα την πρώτη φορά. Αν την έσβησες κατά λάθος, απλά ξανατρέξε `npm start` και ξανακάνε register.
+
+**Login αποτυγχάνει με σωστά credentials μετά από register** — Παλιό bug με `last_insert_rowid()` (διορθώθηκε). Αν εξακολουθεί να συμβαίνει, σβήσε τη βάση (`rm db/taskboard.db`) και κάνε register ξανά.
+
+## License
+
+Διανέμεται με την άδεια [MIT](LICENSE).
 
 ## Μάθημα
 
