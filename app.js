@@ -3,7 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { initDb } = require('./db');
+const { initDb, closeDb } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -53,9 +53,29 @@ initDb().then(() => {
     res.status(500).json({ error: 'Εσωτερικό σφάλμα διακομιστή' });
   });
 
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`TaskBoard Lite → http://localhost:${PORT}`);
   });
+
+  // graceful shutdown - κλεινουμε τον server και σωζουμε τη db πριν το exit
+  function shutdown(signal) {
+    console.log(`\n${signal} ληφθηκε, κλεισιμο...`);
+    server.close(() => {
+      closeDb();
+      console.log('server closed, db saved');
+      process.exit(0);
+    });
+
+    // αν κατι κρεμασει (π.χ. open connections), force exit μετα απο 5s
+    setTimeout(() => {
+      console.error('shutdown timeout, force exit');
+      process.exit(1);
+    }, 5000);
+  }
+
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+
 }).catch(err => {
   console.error('Failed to initialize DB:', err);
   process.exit(1);

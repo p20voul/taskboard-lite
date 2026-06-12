@@ -101,4 +101,12 @@ function getDb() {
   };
 }
 
-module.exports = { initDb, getDb };
+// τελευταιο save στο shutdown, σε περιπτωση που εγινε write
+// λιγο πριν το SIGINT/SIGTERM
+function closeDb() {
+  if (db) {
+    persist();
+  }
+}
+
+module.exports = { initDb, getDb, closeDb };
