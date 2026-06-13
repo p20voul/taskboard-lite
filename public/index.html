@@ -69,11 +69,17 @@
   }
   .logo { font-size: 1.2rem; font-weight: 700; }
   .logo span { color: var(--accent); }
-  .header-right { display: flex; align-items: center; gap: 1rem; }
+  .header-right { display: flex; align-items: center; gap: 0.7rem; }
   .user-badge {
     background: var(--bg3); border: 1px solid var(--border); border-radius: 20px;
     padding: 0.3rem 0.8rem; font-size: 0.8rem; color: var(--text2);
   }
+  .board-select {
+    background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+    padding: 0.4rem 0.8rem; border-radius: 8px; font-size: 0.85rem; outline: none;
+    font-family: var(--font); cursor: pointer; max-width: 160px; transition: border-color 0.15s;
+  }
+  .board-select:focus { border-color: var(--accent); }
   .stats-bar {
     display: flex; gap: 1rem; padding: 1rem 2rem;
     background: var(--bg2); border-bottom: 1px solid var(--border); flex-wrap: wrap;
@@ -153,6 +159,13 @@
     padding: 2rem 0; opacity: 0.4;
   }
 
+  /* EMPTY BOARDS STATE */
+  .empty-boards {
+    text-align: center; padding: 5rem 2rem; color: var(--text2);
+  }
+  .empty-boards .big-icon { font-size: 2rem; margin-bottom: 1rem; opacity: 0.4; }
+  .empty-boards p { margin-bottom: 1.2rem; font-size: 0.9rem; }
+
   /* MODAL */
   .modal-bg {
     display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65);
@@ -183,7 +196,8 @@
 
   @media (max-width: 700px) {
     .board { grid-template-columns: 1fr; padding: 0 1rem 1rem; }
-    header { padding: 0 1rem; }
+    header { height: auto; flex-wrap: wrap; padding: 0.75rem 1rem; gap: 0.6rem; }
+    .header-right { flex-wrap: wrap; }
     .stats-bar { padding: 0.75rem 1rem; }
     .toolbar { padding: 0.75rem 1rem; }
   }
@@ -218,44 +232,56 @@
   <header>
     <div class="logo">Task<span>Board</span> Lite</div>
     <div class="header-right">
+      <select class="board-select" id="boardSelect" onchange="onBoardChange()"></select>
+      <button class="btn-ghost" onclick="openBoardModal()">+ Board</button>
+      <button class="btn-ghost" onclick="deleteCurrentBoard()">Διαγραφή Board</button>
       <span class="user-badge" id="userBadge">—</span>
       <button class="btn-ghost" onclick="logout()">Αποσύνδεση</button>
     </div>
   </header>
 
-  <div class="stats-bar" id="statsBar"></div>
+  <div id="mainContent">
+    <div class="stats-bar" id="statsBar"></div>
 
-  <div class="toolbar">
-    <input type="text" class="search-input" id="searchInput" placeholder="🔍 Αναζήτηση..." oninput="renderAll()">
-    <button class="btn-sm" onclick="openModal()">+ Νέο Task</button>
+    <div class="toolbar">
+      <input type="text" class="search-input" id="searchInput" placeholder="🔍 Αναζήτηση..." oninput="renderAll()">
+      <button class="btn-sm" onclick="openModal()">+ Νέο Task</button>
+    </div>
+
+    <div class="board">
+      <div class="column" ondragover="onDragOver(event,'todo')" ondrop="onDrop(event,'todo')" ondragleave="onDragLeave(event)">
+        <div class="col-header">
+          <div class="col-title"><div class="col-pill" style="background:var(--todo)"></div>To Do</div>
+          <span class="col-count" id="count-todo">0</span>
+        </div>
+        <div class="col-body" id="body-todo"></div>
+      </div>
+      <div class="column" ondragover="onDragOver(event,'progress')" ondrop="onDrop(event,'progress')" ondragleave="onDragLeave(event)">
+        <div class="col-header">
+          <div class="col-title"><div class="col-pill" style="background:var(--prog)"></div>In Progress</div>
+          <span class="col-count" id="count-progress">0</span>
+        </div>
+        <div class="col-body" id="body-progress"></div>
+      </div>
+      <div class="column" ondragover="onDragOver(event,'done')" ondrop="onDrop(event,'done')" ondragleave="onDragLeave(event)">
+        <div class="col-header">
+          <div class="col-title"><div class="col-pill" style="background:var(--done)"></div>Done</div>
+          <span class="col-count" id="count-done">0</span>
+        </div>
+        <div class="col-body" id="body-done"></div>
+      </div>
+    </div>
   </div>
 
-  <div class="board">
-    <div class="column" ondragover="onDragOver(event,'todo')" ondrop="onDrop(event,'todo')" ondragleave="onDragLeave(event)">
-      <div class="col-header">
-        <div class="col-title"><div class="col-pill" style="background:var(--todo)"></div>To Do</div>
-        <span class="col-count" id="count-todo">0</span>
-      </div>
-      <div class="col-body" id="body-todo"></div>
-    </div>
-    <div class="column" ondragover="onDragOver(event,'progress')" ondrop="onDrop(event,'progress')" ondragleave="onDragLeave(event)">
-      <div class="col-header">
-        <div class="col-title"><div class="col-pill" style="background:var(--prog)"></div>In Progress</div>
-        <span class="col-count" id="count-progress">0</span>
-      </div>
-      <div class="col-body" id="body-progress"></div>
-    </div>
-    <div class="column" ondragover="onDragOver(event,'done')" ondrop="onDrop(event,'done')" ondragleave="onDragLeave(event)">
-      <div class="col-header">
-        <div class="col-title"><div class="col-pill" style="background:var(--done)"></div>Done</div>
-        <span class="col-count" id="count-done">0</span>
-      </div>
-      <div class="col-body" id="body-done"></div>
-    </div>
+  <!-- οταν ο χρηστης δεν εχει κανενα board -->
+  <div class="empty-boards" id="emptyBoardsState" style="display:none;">
+    <div class="big-icon">✦</div>
+    <p>Δεν έχεις ακόμα κανένα board</p>
+    <button class="btn-sm" onclick="openBoardModal()">+ Δημιούργησε το πρώτο σου board</button>
   </div>
 </div>
 
-<!-- MODAL -->
+<!-- TASK MODAL -->
 <div class="modal-bg" id="modalBg" onclick="closeModalOnBg(event)">
   <div class="modal">
     <h2 id="modalTitle">Νέο Task</h2>
@@ -299,10 +325,26 @@
   </div>
 </div>
 
+<!-- BOARD MODAL -->
+<div class="modal-bg" id="boardModalBg" onclick="closeBoardModalOnBg(event)">
+  <div class="modal">
+    <h2>Νέο Board</h2>
+    <div class="modal-field">
+      <label>Τίτλος *</label>
+      <input type="text" id="fBoardTitle" placeholder="π.χ. Personal, Work...">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeBoardModal()">Άκυρο</button>
+      <button class="btn-sm" onclick="saveBoard()">Δημιουργία</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const API = '/api';
 let token = localStorage.getItem('tbl_token') || null;
 let currentUser = JSON.parse(localStorage.getItem('tbl_user') || 'null');
+let boards = [];
 let currentBoardId = null;
 let tasks = [];
 let dragId = null;
@@ -347,7 +389,7 @@ async function doAuth() {
 }
 
 function logout() {
-  token = null; currentUser = null; tasks = [];
+  token = null; currentUser = null; tasks = []; boards = []; currentBoardId = null;
   localStorage.removeItem('tbl_token');
   localStorage.removeItem('tbl_user');
   document.getElementById('appScreen').style.display = 'none';
@@ -359,15 +401,76 @@ async function initApp() {
   document.getElementById('authScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
   document.getElementById('userBadge').textContent = '👤 ' + currentUser.username;
+  await loadBoards();
+}
 
-  // Φόρτωσε boards και πάρε τον πρώτο
+// ── BOARDS ────────────────────────────────────────────────────────────────
+async function loadBoards() {
   const res = await apiFetch('/boards');
   if (!res.ok) { logout(); return; }
   const data = await res.json();
-  const boards = data.data;
-  if (boards.length === 0) { logout(); return; }
-  currentBoardId = boards[0].id;
+  boards = data.data;
+
+  // δεν εχει κανενα board -> δειξε empty state αντι για logout
+  if (boards.length === 0) {
+    currentBoardId = null;
+    tasks = [];
+    document.getElementById('mainContent').style.display = 'none';
+    document.getElementById('emptyBoardsState').style.display = 'block';
+    return;
+  }
+
+  document.getElementById('mainContent').style.display = '';
+  document.getElementById('emptyBoardsState').style.display = 'none';
+
+  if (!currentBoardId || !boards.find(b => b.id === currentBoardId)) {
+    currentBoardId = boards[0].id;
+  }
+  renderBoardSelect();
   await loadTasks();
+}
+
+function renderBoardSelect() {
+  const sel = document.getElementById('boardSelect');
+  sel.innerHTML = boards.map(b =>
+    `<option value="${b.id}" ${b.id === currentBoardId ? 'selected' : ''}>${esc(b.title)}</option>`
+  ).join('');
+}
+
+async function onBoardChange() {
+  currentBoardId = Number(document.getElementById('boardSelect').value);
+  await loadTasks();
+}
+
+function openBoardModal() {
+  document.getElementById('fBoardTitle').value = '';
+  document.getElementById('boardModalBg').classList.add('open');
+  setTimeout(() => document.getElementById('fBoardTitle').focus(), 50);
+}
+function closeBoardModal() { document.getElementById('boardModalBg').classList.remove('open'); }
+function closeBoardModalOnBg(e) { if (e.target === document.getElementById('boardModalBg')) closeBoardModal(); }
+
+async function saveBoard() {
+  const title = document.getElementById('fBoardTitle').value.trim();
+  if (!title) { document.getElementById('fBoardTitle').focus(); return; }
+
+  const res = await apiFetch('/boards', 'POST', { title });
+  if (!res.ok) return;
+  const board = await res.json();
+  closeBoardModal();
+  currentBoardId = board.id;
+  await loadBoards();
+}
+
+async function deleteCurrentBoard() {
+  if (!currentBoardId) return;
+  const board = boards.find(b => b.id === currentBoardId);
+  // διαγραφη board = διαγραφη και ολων των tasks του, οποτε confirm πρωτα
+  if (!confirm(`Διαγραφή board "${board ? board.title : ''}" μαζί με όλα τα tasks του;`)) return;
+
+  await apiFetch(`/boards/${currentBoardId}`, 'DELETE');
+  currentBoardId = null;
+  await loadBoards();
 }
 
 async function loadTasks() {
@@ -467,7 +570,7 @@ async function onDrop(e, col) {
   await loadTasks();
 }
 
-// ── MODAL ─────────────────────────────────────────────────────────────────
+// ── MODAL (TASK) ──────────────────────────────────────────────────────────
 function openModal(status = 'todo') {
   editId = null;
   document.getElementById('modalTitle').textContent = 'Νέο Task';
@@ -544,7 +647,7 @@ function esc(s) {
 
 // ── KEYBOARD SHORTCUTS ────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeModal();
+  if (e.key === 'Escape') { closeModal(); closeBoardModal(); }
   if (e.key === 'Enter' && document.getElementById('authScreen').style.display !== 'none') doAuth();
 });
 
