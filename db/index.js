@@ -2,7 +2,10 @@ const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
 
-const DB_PATH = path.join(__dirname, 'taskboard.db');
+// DB_PATH override για τα tests, ωστε να μη γραφουν στην κανονικη db
+const DB_PATH = process.env.DB_PATH
+  ? path.resolve(process.env.DB_PATH)
+  : path.join(__dirname, 'taskboard.db');
 let db = null;
 
 function persist() {

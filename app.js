@@ -27,58 +27,72 @@ app.use((req, res, next) => {
   next();
 });
 
-// Εκκίνηση με async initDb πρώτα, μετά routes
-initDb().then(() => {
-  const authRoutes   = require('./routes/auth');
-  const boardsRoutes = require('./routes/boards');
-  const tasksRoutes  = require('./routes/tasks');
-  const cache        = require('./cache');
+// setup ξεχωριστα απο το listen, ωστε τα tests να μπορουν να καλεσουν
+// setup() και να παρουν ενα ετοιμο app χωρις να ανοιγει port
+let setupPromise = null;
+function setup() {
+  if (!setupPromise) {
+    setupPromise = initDb().then(() => {
+      const authRoutes   = require('./routes/auth');
+      const boardsRoutes = require('./routes/boards');
+      const tasksRoutes  = require('./routes/tasks');
+      const cache        = require('./cache');
 
-  app.use('/api/auth',   authRoutes);
-  app.use('/api/boards', boardsRoutes);
-  app.use('/api/tasks',  tasksRoutes);
+      app.use('/api/auth',   authRoutes);
+      app.use('/api/boards', boardsRoutes);
+      app.use('/api/tasks',  tasksRoutes);
 
-  app.get('/api/cache/stats', (req, res) => res.json(cache.stats()));
+      app.get('/api/cache/stats', (req, res) => res.json(cache.stats()));
 
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-  });
+      app.get('*', (req, res) => {
+        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+      });
 
-  app.use((err, req, res, next) => {
-    console.error('Server error:', err);
-    // payload too large απο express.json limit
-    if (err.type === 'entity.too.large') {
-      return res.status(413).json({ error: 'Το αίτημα είναι πολύ μεγάλο' });
-    }
-    res.status(500).json({ error: 'Εσωτερικό σφάλμα διακομιστή' });
-  });
+      app.use((err, req, res, next) => {
+        console.error('Server error:', err);
+        // payload too large απο express.json limit
+        if (err.type === 'entity.too.large') {
+          return res.status(413).json({ error: 'Το αίτημα είναι πολύ μεγάλο' });
+        }
+        res.status(500).json({ error: 'Εσωτερικό σφάλμα διακομιστή' });
+      });
 
-  const server = app.listen(PORT, () => {
-    console.log(`TaskBoard Lite → http://localhost:${PORT}`);
-  });
+      return app;
+    });
+  }
+  return setupPromise;
+}
 
-  // graceful shutdown - κλεινουμε τον server και σωζουμε τη db πριν το exit
-  function shutdown(signal) {
-    console.log(`\n${signal} ληφθηκε, κλεισιμο...`);
-    server.close(() => {
-      closeDb();
-      console.log('server closed, db saved');
-      process.exit(0);
+// ξεκινα τον πραγματικο server μονο οταν τρεχει `node app.js`,
+// οχι οταν το app γινεται require απο τα tests
+if (require.main === module) {
+  setup().then((app) => {
+    const server = app.listen(PORT, () => {
+      console.log(`TaskBoard Lite → http://localhost:${PORT}`);
     });
 
-    // αν κατι κρεμασει (π.χ. open connections), force exit μετα απο 5s
-    setTimeout(() => {
-      console.error('shutdown timeout, force exit');
-      process.exit(1);
-    }, 5000);
-  }
+    // graceful shutdown - κλεινουμε τον server και σωζουμε τη db πριν το exit
+    function shutdown(signal) {
+      console.log(`\n${signal} ληφθηκε, κλεισιμο...`);
+      server.close(() => {
+        closeDb();
+        console.log('server closed, db saved');
+        process.exit(0);
+      });
 
-  process.on('SIGINT', () => shutdown('SIGINT'));
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
+      // αν κατι κρεμασει (π.χ. open connections), force exit μετα απο 5s
+      setTimeout(() => {
+        console.error('shutdown timeout, force exit');
+        process.exit(1);
+      }, 5000);
+    }
 
-}).catch(err => {
-  console.error('Failed to initialize DB:', err);
-  process.exit(1);
-});
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+  }).catch(err => {
+    console.error('Failed to initialize DB:', err);
+    process.exit(1);
+  });
+}
 
-module.exports = app;
+module.exports = { app, setup };
