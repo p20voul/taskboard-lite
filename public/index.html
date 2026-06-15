@@ -494,15 +494,18 @@ function renderAll(cacheBadge = '') {
   const cols = ['todo', 'progress', 'done'];
 
   cols.forEach(col => {
-    const filtered = tasks.filter(t =>
-      t.status === col &&
-      (!q || t.title.toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q))
+    const colTasks = tasks.filter(t => t.status === col);
+    const filtered = colTasks.filter(t =>
+      !q || t.title.toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q)
     );
     document.getElementById('count-' + col).textContent = filtered.length;
     const body = document.getElementById('body-' + col);
 
     if (filtered.length === 0) {
-      body.innerHTML = '<div class="empty">✦<br>Κανένα task</div>';
+      // αν υπαρχουν tasks στη στηλη αλλα τα εκρυψε η αναζητηση, δειξε αλλο μηνυμα
+      body.innerHTML = (q && colTasks.length > 0)
+        ? '<div class="empty">🔍<br>Δεν βρέθηκαν αποτελέσματα</div>'
+        : '<div class="empty">✦<br>Κανένα task</div>';
     } else {
       body.innerHTML = filtered.map(cardHTML).join('');
       filtered.forEach(t => {
