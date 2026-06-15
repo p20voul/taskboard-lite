@@ -9,7 +9,8 @@ const LIMITS = {
 
 const STATUS = ['todo', 'progress', 'done'];
 const PRIORITY = ['low', 'med', 'high'];
-const TAG = ['feat', 'bug', 'chore', 'docs'];
+// πρεπει να ταιριαζει με τα tags του frontend (public/index.html, fTag select)
+const TAG = ['feat', 'bug', 'ui', 'api'];
 
 function checkLen(value, max, field) {
   if (value == null) return null;

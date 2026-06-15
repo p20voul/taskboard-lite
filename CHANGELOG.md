@@ -44,3 +44,8 @@
 ## Day 10 — changelog + polish
 - αυτό το αρχείο
 - στο search: διαφορετικό μήνυμα όταν η στήλη είναι άδεια vs όταν η αναζήτηση δεν βρίσκει τίποτα
+
+## Bugfix — tag enum (ui/api)
+- το `middleware/validate.js` είχε `TAG = ['feat','bug','chore','docs']` αλλά το frontend έχει `feat/bug/ui/api`
+- επιλέγοντας tag `ui` ή `api` σε νέο/υπάρχον task το backend γύρναγε 400 αλλά το UI δεν έδειχνε τίποτα
+- διορθώθηκε το enum + προστέθηκε error message στο task modal

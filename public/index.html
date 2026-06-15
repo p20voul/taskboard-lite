@@ -318,6 +318,7 @@
         <option value="done">Done</option>
       </select>
     </div>
+    <div class="error-msg" id="taskError"></div>
     <div class="modal-footer">
       <button class="btn-ghost" onclick="closeModal()">Άκυρο</button>
       <button class="btn-sm" onclick="saveTask()">Αποθήκευση</button>
@@ -582,6 +583,7 @@ function openModal(status = 'todo') {
   document.getElementById('fTag').value = 'feat';
   document.getElementById('fPriority').value = 'med';
   document.getElementById('fStatus').value = status;
+  document.getElementById('taskError').textContent = '';
   document.getElementById('modalBg').classList.add('open');
   setTimeout(() => document.getElementById('fTitle').focus(), 50);
 }
@@ -598,6 +600,7 @@ function editTask(id) {
   document.getElementById('fTag').value = t.tag;
   document.getElementById('fPriority').value = t.priority;
   document.getElementById('fStatus').value = t.status;
+  document.getElementById('taskError').textContent = '';
   document.getElementById('modalBg').classList.add('open');
 }
 
@@ -614,10 +617,15 @@ async function saveTask() {
     status: document.getElementById('fStatus').value,
   };
 
-  if (editId) {
-    await apiFetch(`/tasks/${editId}`, 'PUT', payload);
-  } else {
-    await apiFetch('/tasks', 'POST', payload);
+  const res = editId
+    ? await apiFetch(`/tasks/${editId}`, 'PUT', payload)
+    : await apiFetch('/tasks', 'POST', payload);
+
+  // αν απετυχε (π.χ. validation error), δειξε το μηνυμα και μεινε στο modal
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    document.getElementById('taskError').textContent = data.error || 'Κάτι πήγε στραβά, δοκίμασε ξανά';
+    return;
   }
 
   closeModal();
